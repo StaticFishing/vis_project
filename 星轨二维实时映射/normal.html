@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Map</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        svg {
+    border: 1px solid black;
+}
+
+    </style>
+</head>
+<body>
+    <svg width="1580" height="1100"></svg>
+    <script>
+        const svg = d3.select("svg").append('g').attr("transform",`translate(790,800)`);
+        const width = +svg.attr("width");
+        const height = +svg.attr("height");
+
+        const projection = d3.geoMercator()
+            .scale(250)
+            .translate([width/2, height/1.5]);
+const path = d3.geoPath().projection(projection);
+        
+
+Promise.all([
+            d3.json('world.json'),
+            d3.csv('data.csv')  
+        ]).then(([geodata,co2data]) => {
+    console.log(geodata);
+    if (geodata.features) {
+        geodata.features.forEach(feature => {
+            console.log(feature.geometry); 
+            const pathData = path(feature);
+            console.log(pathData);
+        });
+        co2data.forEach(d => {
+                d.co2_emission = +d.co2_emission; 
+            });
+            const emissions = co2data.map(d => d.co2_emission);
+            const minEmission = d3.min(emissions);
+            const maxEmission = d3.max(emissions);
+            const colorScale = d3.scaleSequential(d3.interpolateBlues)
+                .domain([minEmission, 5000000]);//此处设置500w而非1000w是因为设置500w是为了凸显从线性变为指数级后美国颜色的变化，并且设置为500w以后全球的颜色分布会更有层次感
+        
+        //draw the world map
+        svg.selectAll("path")
+            .data(geodata.features)
+            .enter()
+            .append("path")
+            .attr("class", "country")
+            .attr("d", path)
+            .attr('fill',d=>{
+                var vcountry = co2data.find(x=>x.country == d.properties.name);
+                return vcountry?colorScale(vcountry.co2_emission) : 'white';
+            })
+            .attr('stroke','#333')
+            .on('click', function(event, d) {
+            var vcountry = co2data.find(x=>x.country == d.properties.name);
+            var message = d.properties.name + ' ' + vcountry.co2_emission;
+        
+            
+            var tooltip = d3.select("#tooltip");
+        
+            tooltip
+            .style("opacity", 1) 
+            .html(message) 
+            .style("left", (event.pageX + 5) + "px") 
+            .style("top", (event.pageY - 28) + "px");
+            });
+        d3.select("body").append("div")
+            .attr("id", "tooltip")
+            .style("position", "absolute")
+            .style("background", "lightyellow")
+            .style("border", "1px solid #ccc")
+            .style("padding", "5px")
+            .style("opacity", 0); 
+
+        const legendWidth = 20; 
+        const legendHeight = 150; 
+        const legend = svg.append("g")
+            .attr("class", "legend")
+            .attr("transform", "translate(700, -700)");
+        for (let i = 0; i <= legendHeight; i++) {
+            legend.append("rect")
+                .attr("x", 0)
+                .attr("y", i)
+                .attr("width", legendWidth)
+                .attr("height", 1)
+                .attr("fill", colorScale((150-i)/ legendHeight * 5000000));
+        }
+        const yScale = d3.scaleLinear()
+            .domain([minEmission, 10000000])
+            .range([legendHeight, 0]);
+
+        const yAxis = d3.axisRight(yScale)
+            .ticks(1) 
+            .tickFormat(d3.format(",.0f"))
+            .tickPadding(15);
+        legend.append("g")
+            .attr("transform", "translate(legendWidth, 0)")
+            .call(yAxis);
+        svg.append('text')
+            .attr('x', width / 2 )
+            .attr('y', -730)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '40px')
+            .attr('font-weight', 'bold')
+            .text('2020年度全球二氧化碳排放量(kt)图');
+    } else {
+        console.error("Data format is incorrect");
+    }
+    
+}).catch(error => {
+    console.error("Error loading the JSON data: ", error);
+});
+    </script>
+</body>
+</html>
