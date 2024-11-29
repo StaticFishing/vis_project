@@ -3,39 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Star Trails on Equator with Grid</title>
+    <title>Real-time Satellite Position</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         svg {
             border: 1px solid black;
         }
+        /* 卫星信息显示框的样式 */
+       /* 卫星信息显示框的样式 */
+       #satelliteInfo {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.8); /* 半透明背景 */
+            border: 1px solid #333;
+            padding: 10px;
+            font-size: 14px;
+            display: none; /* 默认隐藏 */
+            pointer-events: none; /* 不阻止鼠标事件 */
+            z-index: 9999; /* 确保信息框显示在所有元素上方 */
+            max-width: 300px;
+        }
     </style>
 </head>
 <body>
     <svg width="1580" height="1100"></svg>
+    <div id="satelliteInfo"></div> <!-- 卫星信息显示框 -->
+
     <script>
-        const svg = d3.select("svg").append('g').attr("transform", `translate(790,800)`);
+        const svg = d3.select("svg").append('g').attr("transform", "translate(790,800)");
         const width = +svg.attr("width");
         const height = +svg.attr("height");
 
+        // 使用 Mercator 投影
         const projection = d3.geoMercator()
-            .scale(250)
+            .scale(250)  // 设置初始的缩放比例
             .translate([width / 2, height / 1.5]);
 
         const path = d3.geoPath().projection(projection);
 
-        // 模拟星轨的坐标数据（赤道上，纬度固定为0，经度变化）
-        const starPath = [];
-        const numPoints = 50;  // 模拟50个点沿赤道运动
-        for (let i = 0; i < numPoints; i++) {
-            const lon = (i * 360 / numPoints);  // 经度从0到360
-            starPath.push({ lat: 0, lon: lon });
+        // 动态调整投影的纵向缩放因子，模拟透视效果
+        function perspectiveScale(lat) {
+            const maxLat = 90; // 最大纬度
+            const scaleFactor = 1 - Math.abs(lat) / maxLat * 0.5;
+            return scaleFactor > 0.3 ? scaleFactor : 0.3;
+        }
+
+        // 请求卫星实时位置的模拟函数
+        function getSatellitePosition() {
+            // 使用 ISS 的 API 示例
+            return fetch('https://api.wheretheiss.at/v1/satellites/25544')  // 获取 ISS (International Space Station)的位置
+                .then(response => response.json())
+                .then(data => {
+                    return {
+                        lon: data.longitude,
+                        lat: data.latitude,
+                        name: "ISS"  // 添加卫星名称
+                    };
+                })
+                .catch(error => {
+                    console.error("Error fetching satellite position:", error);
+                    return { lon: 0, lat: 0, name: "Unknown" };  // 默认值
+                });
+        }
+
+        // 卫星信息框
+        const infoBox = d3.select("#satelliteInfo");
+
+          // 显示卫星信息
+          function showSatelliteInfo(position, event) {
+            console.log("showSatelliteInfo triggered");  // 确认函数是否被调用
+            console.log(position);  // 打印点击时的卫星数据
+            
+            const mouseX = event.pageX;
+            const mouseY = event.pageY;
+
+            // 打印鼠标坐标
+            console.log("Mouse position:", mouseX, mouseY);
+
+           // 设置硬编码位置以测试是否能看到信息框
+           infoBox.style("top", "100px").style("left", "100px");
+
+            // 显示卫星信息框，位置跟随鼠标
+            infoBox.style("display", "block")
+                .style("top", (mouseY + 10) + "px")  // 显示框跟随鼠标位置
+                .style("left", (mouseX + 10) + "px")
+                .html(`
+                    <strong>卫星名称:</strong> ${position.name}<br>
+                    <strong>经度:</strong> ${position.lon.toFixed(2)}<br>
+                    <strong>纬度:</strong> ${position.lat.toFixed(2)}
+                `);
+        }
+
+        // 隐藏卫星信息框
+        function hideSatelliteInfo() {
+            infoBox.style("display", "none");
         }
 
         Promise.all([
             d3.json('world.json') // 获取世界地图数据
         ]).then(([geodata]) => {
-            console.log(geodata);
             if (geodata.features) {
                 // 绘制世界地图
                 svg.selectAll("path")
@@ -70,37 +135,58 @@
                         .attr("stroke-dasharray", "2,2");
                 }
 
-                // 创建模拟的星轨路径
-                const starTrail = svg.append("path")
-                    .datum(starPath)
-                    .attr("class", "starTrail")
-                    .attr("d", d3.line()
-                        .x(d => projection([d.lon, d.lat])[0])
-                        .y(d => projection([d.lon, d.lat])[1])
-                    )
-                    .attr("fill", "none")
-                    .attr("stroke", "cyan")  // 更显眼的轨道颜色
-                    .attr("stroke-width", 2);
-
-                // 动画效果：模拟星轨沿着路径运动
-                const starDot = svg.append("circle")
-                    .attr("r", 5)
+                // 创建卫星路径
+                let satellitePath = [];  // 保存卫星位置的路径数组
+                const satelliteDot = svg.append("circle")
+                    .attr("r", 12)  // 卫星图标的半径
                     .attr("fill", "yellow")
-                    .attr("cx", projection([starPath[0].lon, starPath[0].lat])[0])
-                    .attr("cy", projection([starPath[0].lon, starPath[0].lat])[1]);
+                    .attr("cx", projection([0, 0])[0]) // 初始化位置
+                    .attr("cy", projection([0, 0])[1])
+                    .style("cursor", "pointer")  // 鼠标悬停时显示为可点击
+                    .datum({ lon: 0, lat: 0, name: "ISS" })  // 添加卫星的初始数据
+                    .on("mouseover", function(event) {
+                        const position = d3.select(this).datum(); // 获取绑定的数据
+                        showSatelliteInfo(position, event); // 显示卫星信息
+                    })
+                    .on("mouseout", hideSatelliteInfo); // 鼠标移开时隐藏信息框
 
-                let i = 0;
-                function animateStar() {
-                    i = (i + 1) % starPath.length;
-                    starDot.transition()
-                        .duration(500) // 每个步骤的动画时间
-                        .ease(d3.easeLinear)
-                        .attr("cx", projection([starPath[i].lon, starPath[i].lat])[0])
-                        .attr("cy", projection([starPath[i].lon, starPath[i].lat])[1])
-                        .on("end", animateStar); // 循环动画
+                // 动画：根据卫星实时位置更新
+                function updateSatellitePosition() {
+                    getSatellitePosition().then(position => {
+                        satellitePath.push(position);
+                        if (satellitePath.length > 50) {
+                            satellitePath.shift(); // 保持路径长度为50
+                        }
+
+                        // 绘制卫星路径
+                        svg.selectAll(".satelliteTrail")
+                            .data([satellitePath])
+                            .join("path")
+                            .attr("class", "satelliteTrail")
+                            .attr("d", d3.line()
+                                .x(d => projection([d.lon, d.lat])[0])
+                                .y(d => projection([d.lon, d.lat])[1]))
+                            .attr("fill", "none")
+                            .attr("stroke", "cyan")
+                            .attr("stroke-width", 2);
+
+                        // 更新卫星的位置
+                        satelliteDot.datum(position)  // 将位置存储到卫星元素中
+                            .transition()
+                            .duration(1000)
+                            .ease(d3.easeLinear)
+                            .attr("cx", projection([position.lon, position.lat])[0])
+                            .attr("cy", projection([position.lon, position.lat])[1]);
+
+                        // 每秒更新卫星位置
+                        setTimeout(updateSatellitePosition, 1000);
+                    });
                 }
 
-                animateStar(); // 开始动画
+                updateSatellitePosition(); // 开始实时更新卫星位置
+
+                // 隐藏信息框，点击地图其他区域时
+                svg.on("click", hideSatelliteInfo);
 
             } else {
                 console.error("Data format is incorrect");
