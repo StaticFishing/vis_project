@@ -3,119 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>World Map</title>
+    <title>Star Trails on Equator with Grid</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         svg {
-    border: 1px solid black;
-}
-
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
     <svg width="1580" height="1100"></svg>
     <script>
-        const svg = d3.select("svg").append('g').attr("transform",`translate(790,800)`);
+        const svg = d3.select("svg").append('g').attr("transform", `translate(790,800)`);
         const width = +svg.attr("width");
         const height = +svg.attr("height");
 
         const projection = d3.geoMercator()
             .scale(250)
-            .translate([width/2, height/1.5]);
-const path = d3.geoPath().projection(projection);
-        
+            .translate([width / 2, height / 1.5]);
 
-Promise.all([
-            d3.json('world.json'),
-            d3.csv('data.csv')  
-        ]).then(([geodata,co2data]) => {
-    console.log(geodata);
-    if (geodata.features) {
-        geodata.features.forEach(feature => {
-            console.log(feature.geometry); 
-            const pathData = path(feature);
-            console.log(pathData);
-        });
-        co2data.forEach(d => {
-                d.co2_emission = +d.co2_emission; 
-            });
-            const emissions = co2data.map(d => d.co2_emission);
-            const minEmission = d3.min(emissions);
-            const maxEmission = d3.max(emissions);
-            const colorScale = d3.scaleSequential(d3.interpolateBlues)
-                .domain([minEmission, 5000000]);//此处设置500w而非1000w是因为设置500w是为了凸显从线性变为指数级后美国颜色的变化，并且设置为500w以后全球的颜色分布会更有层次感
-        
-        //draw the world map
-        svg.selectAll("path")
-            .data(geodata.features)
-            .enter()
-            .append("path")
-            .attr("class", "country")
-            .attr("d", path)
-            .attr('fill',d=>{
-                var vcountry = co2data.find(x=>x.country == d.properties.name);
-                return vcountry?colorScale(vcountry.co2_emission) : 'white';
-            })
-            .attr('stroke','#333')
-            .on('click', function(event, d) {
-            var vcountry = co2data.find(x=>x.country == d.properties.name);
-            var message = d.properties.name + ' ' + vcountry.co2_emission;
-        
-            
-            var tooltip = d3.select("#tooltip");
-        
-            tooltip
-            .style("opacity", 1) 
-            .html(message) 
-            .style("left", (event.pageX + 5) + "px") 
-            .style("top", (event.pageY - 28) + "px");
-            });
-        d3.select("body").append("div")
-            .attr("id", "tooltip")
-            .style("position", "absolute")
-            .style("background", "lightyellow")
-            .style("border", "1px solid #ccc")
-            .style("padding", "5px")
-            .style("opacity", 0); 
+        const path = d3.geoPath().projection(projection);
 
-        const legendWidth = 20; 
-        const legendHeight = 150; 
-        const legend = svg.append("g")
-            .attr("class", "legend")
-            .attr("transform", "translate(700, -700)");
-        for (let i = 0; i <= legendHeight; i++) {
-            legend.append("rect")
-                .attr("x", 0)
-                .attr("y", i)
-                .attr("width", legendWidth)
-                .attr("height", 1)
-                .attr("fill", colorScale((150-i)/ legendHeight * 5000000));
+        // 模拟星轨的坐标数据（赤道上，纬度固定为0，经度变化）
+        const starPath = [];
+        const numPoints = 50;  // 模拟50个点沿赤道运动
+        for (let i = 0; i < numPoints; i++) {
+            const lon = (i * 360 / numPoints);  // 经度从0到360
+            starPath.push({ lat: 0, lon: lon });
         }
-        const yScale = d3.scaleLinear()
-            .domain([minEmission, 10000000])
-            .range([legendHeight, 0]);
 
-        const yAxis = d3.axisRight(yScale)
-            .ticks(1) 
-            .tickFormat(d3.format(",.0f"))
-            .tickPadding(15);
-        legend.append("g")
-            .attr("transform", "translate(legendWidth, 0)")
-            .call(yAxis);
-        svg.append('text')
-            .attr('x', width / 2 )
-            .attr('y', -730)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', '40px')
-            .attr('font-weight', 'bold')
-            .text('2020年度全球二氧化碳排放量(kt)图');
-    } else {
-        console.error("Data format is incorrect");
-    }
-    
-}).catch(error => {
-    console.error("Error loading the JSON data: ", error);
-});
+        Promise.all([
+            d3.json('world.json') // 获取世界地图数据
+        ]).then(([geodata]) => {
+            console.log(geodata);
+            if (geodata.features) {
+                // 绘制世界地图
+                svg.selectAll("path")
+                    .data(geodata.features)
+                    .enter()
+                    .append("path")
+                    .attr("class", "country")
+                    .attr("d", path)
+                    .attr('fill', 'lightgray')
+                    .attr('stroke','#333');
+
+                // 绘制经纬度网格
+                for (let lon = -180; lon <= 180; lon += 10) {
+                    svg.append("line")
+                        .attr("x1", projection([lon, -90])[0])
+                        .attr("y1", projection([lon, -90])[1])
+                        .attr("x2", projection([lon, 90])[0])
+                        .attr("y2", projection([lon, 90])[1])
+                        .attr("stroke", "lightgray")
+                        .attr("stroke-width", 0.5)
+                        .attr("stroke-dasharray", "2,2");
+                }
+
+                for (let lat = -90; lat <= 90; lat += 10) {
+                    svg.append("line")
+                        .attr("x1", projection([-180, lat])[0])
+                        .attr("y1", projection([-180, lat])[1])
+                        .attr("x2", projection([180, lat])[0])
+                        .attr("y2", projection([180, lat])[1])
+                        .attr("stroke", "lightgray")
+                        .attr("stroke-width", 0.5)
+                        .attr("stroke-dasharray", "2,2");
+                }
+
+                // 创建模拟的星轨路径
+                const starTrail = svg.append("path")
+                    .datum(starPath)
+                    .attr("class", "starTrail")
+                    .attr("d", d3.line()
+                        .x(d => projection([d.lon, d.lat])[0])
+                        .y(d => projection([d.lon, d.lat])[1])
+                    )
+                    .attr("fill", "none")
+                    .attr("stroke", "cyan")  // 更显眼的轨道颜色
+                    .attr("stroke-width", 2);
+
+                // 动画效果：模拟星轨沿着路径运动
+                const starDot = svg.append("circle")
+                    .attr("r", 5)
+                    .attr("fill", "yellow")
+                    .attr("cx", projection([starPath[0].lon, starPath[0].lat])[0])
+                    .attr("cy", projection([starPath[0].lon, starPath[0].lat])[1]);
+
+                let i = 0;
+                function animateStar() {
+                    i = (i + 1) % starPath.length;
+                    starDot.transition()
+                        .duration(500) // 每个步骤的动画时间
+                        .ease(d3.easeLinear)
+                        .attr("cx", projection([starPath[i].lon, starPath[i].lat])[0])
+                        .attr("cy", projection([starPath[i].lon, starPath[i].lat])[1])
+                        .on("end", animateStar); // 循环动画
+                }
+
+                animateStar(); // 开始动画
+
+            } else {
+                console.error("Data format is incorrect");
+            }
+        }).catch(error => {
+            console.error("Error loading the JSON data: ", error);
+        });
     </script>
 </body>
 </html>
