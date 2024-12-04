@@ -62,9 +62,13 @@
   const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, side: THREE.DoubleSide });
   const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
 
+  // 设置轨道的倾斜角度
+  const orbitInclineAnglex = Math.PI / 4; // 轨道倾斜的角度
+  const orbitInclineAngley = Math.PI / 6; // 轨道倾斜的角度
+
   // 设置轨道的倾斜角度（例如：30度倾斜）
-  orbit.rotation.x = Math.PI / 4; // 轨道绕x轴倾斜 45度
-  // orbit.rotation.y = Math.PI / 6; // 可选择绕y轴倾斜，例如：30度
+  orbit.rotation.x = orbitInclineAnglex; // 轨道绕x轴倾斜
+  orbit.rotation.y = orbitInclineAngley; // 轨道绕y轴倾斜
   scene.add(orbit);
 
   // 创建卫星
@@ -75,9 +79,6 @@
 
   // 让卫星围绕轨道旋转
   let satelliteAngle = 0; // 初始化卫星的角度
-
-  // 轨道倾斜角度
-  const orbitInclineAngle = Math.PI / 4; // 轨道倾斜的角度
 
   // 处理窗口大小变化
   window.addEventListener('resize', () => {
@@ -100,10 +101,10 @@
 
     // 计算卫星的新位置
     satellite.position.x = 7 * Math.cos(satelliteAngle); // 卫星的 X 坐标
-    satellite.position.z = 7 * Math.sin(satelliteAngle)*Math.sin(orbitInclineAngle); // 卫星的 Z 坐标
+    satellite.position.z = 7 * Math.sin(satelliteAngle) * Math.cos(orbitInclineAnglex); // 卫星的 Z 坐标
 
     // 轨道的倾斜角度，使卫星沿倾斜轨道运动
-    satellite.position.y = 7 * Math.sin(satelliteAngle)*Math.sin(orbitInclineAngle); // 卫星的 Y 坐标，根据倾斜角度调整
+    satellite.position.y = 7 * Math.sin(satelliteAngle) * Math.sin(orbitInclineAnglex); // 卫星的 Y 坐标，根据倾斜角度调整
 
     // 更新控制器
     controls.update();
