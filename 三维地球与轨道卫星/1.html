@@ -82,9 +82,13 @@
     return { orbit, satellite, satelliteAngle };
   }
 
-  // 使用封装的函数创建一个轨道和卫星，指定初始角度
-  const { orbit, satellite, satelliteAngle: initialAngle } = createOrbitAndSatellite(7, Math.PI / 4, Math.PI / 6, Math.PI / 2);
-  let satelliteAngle = initialAngle; // 将初始角度赋给卫星的角度变量
+  // 创建第一组轨道和卫星
+  const { orbit: orbit1, satellite: satellite1, satelliteAngle: initialAngle1 } = createOrbitAndSatellite(7, Math.PI / 10000, Math.PI / 6, Math.PI / 10000);
+  let satelliteAngle1 = initialAngle1; // 将初始角度赋给卫星的角度变量
+
+  // 创建第二组轨道和卫星
+  const { orbit: orbit2, satellite: satellite2, satelliteAngle: initialAngle2 } = createOrbitAndSatellite(10, Math.PI / 6, Math.PI / 4, Math.PI / 3);
+  let satelliteAngle2 = initialAngle2; // 将初始角度赋给卫星的角度变量
 
   // 处理窗口大小变化
   window.addEventListener('resize', () => {
@@ -92,6 +96,21 @@
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
   });
+
+  // 使卫星沿轨道旋转的独立控制函数
+  function updateSatellitePosition(satellite, satelliteAngle, orbitRadius, inclineAngleX, inclineAngleY) {
+    satelliteAngle += 0.005; // Satellite rotation speed
+    if (satelliteAngle > 2 * Math.PI) satelliteAngle -= 2 * Math.PI; // Ensure angle does not exceed 360 degrees
+
+    // Calculate satellite's new position based on orbital radius and angles
+    satellite.position.x = orbitRadius * Math.cos(satelliteAngle) * Math.cos(inclineAngleX); // Satellite X coordinate (inclined by Y axis)
+    satellite.position.y = orbitRadius * Math.sin(satelliteAngle) * Math.cos(inclineAngleY); // Satellite Y coordinate (inclined by X axis)
+    satellite.position.z = orbitRadius * Math.sin(satelliteAngle) * Math.sin(inclineAngleY) * Math.sin(inclineAngleX); // Satellite Z coordinate (inclined by both X and Y axes)
+
+    return satelliteAngle; // Return updated angle
+  }
+
+
 
   // 动画函数实现平滑的旋转效果
   let rotationSpeed = 0.001; // 控制地球旋转速度
@@ -101,16 +120,9 @@
     // 让地球持续旋转
     earth.rotation.y += rotationSpeed;
 
-    // 使卫星沿轨道旋转，同时同步运动轨迹和轨道
-    satelliteAngle += 0.005; // 卫星旋转速度
-    if (satelliteAngle > 2 * Math.PI) satelliteAngle -= 2 * Math.PI; // 保证角度不超过360度
-
-    // 计算卫星的新位置
-    satellite.position.x = 7 * Math.cos(satelliteAngle); // 卫星的 X 坐标
-    satellite.position.z = 7 * Math.sin(satelliteAngle) * Math.cos(Math.PI / 4); // 卫星的 Z 坐标
-
-    // 轨道的倾斜角度，使卫星沿倾斜轨道运动
-    satellite.position.y = 7 * Math.sin(satelliteAngle) * Math.sin(Math.PI / 4); // 卫星的 Y 坐标，根据倾斜角度调整
+    // 更新卫星的位置（每个卫星都有自己的控制函数）
+    satelliteAngle1 = updateSatellitePosition(satellite1, satelliteAngle1, 7, Math.PI / 2, Math.PI / 3); // 第一组卫星
+    satelliteAngle2 = updateSatellitePosition(satellite2, satelliteAngle2, 10, Math.PI / 6, Math.PI / 4); // 第二组卫星
 
     // 更新控制器
     controls.update();
