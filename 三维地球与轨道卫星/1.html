@@ -57,28 +57,34 @@
   // 初始化 OrbitControls 以便可以用鼠标拖动
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // 创建卫星轨道
-  const orbitGeometry = new THREE.RingGeometry(7, 7.2, 64); // 创建轨道环
-  const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, side: THREE.DoubleSide });
-  const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+  // 封装创建轨道和卫星的函数，添加初始角度参数
+  function createOrbitAndSatellite(orbitRadius, orbitInclineAnglex, orbitInclineAngley, initialSatelliteAngle) {
+    // 创建卫星轨道
+    const orbitGeometry = new THREE.RingGeometry(orbitRadius, orbitRadius + 0.2, 64); // 创建轨道环
+    const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, side: THREE.DoubleSide });
+    const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
 
-  // 设置轨道的倾斜角度
-  const orbitInclineAnglex = Math.PI / 4; // 轨道倾斜的角度
-  const orbitInclineAngley = Math.PI / 6; // 轨道倾斜的角度
+    // 设置轨道的倾斜角度
+    orbit.rotation.x = orbitInclineAnglex; // 轨道绕x轴倾斜
+    orbit.rotation.y = orbitInclineAngley; // 轨道绕y轴倾斜
+    scene.add(orbit);
 
-  // 设置轨道的倾斜角度（例如：30度倾斜）
-  orbit.rotation.x = orbitInclineAnglex; // 轨道绕x轴倾斜
-  orbit.rotation.y = orbitInclineAngley; // 轨道绕y轴倾斜
-  scene.add(orbit);
+    // 创建卫星
+    const satelliteGeometry = new THREE.SphereGeometry(0.5, 16, 16); // 卫星的小球
+    const satelliteMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // 卫星的材质
+    const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+    scene.add(satellite);
 
-  // 创建卫星
-  const satelliteGeometry = new THREE.SphereGeometry(0.5, 16, 16); // 卫星的小球
-  const satelliteMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // 卫星的材质
-  const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
-  scene.add(satellite);
+    // 初始化卫星的角度
+    let satelliteAngle = initialSatelliteAngle;
 
-  // 让卫星围绕轨道旋转
-  let satelliteAngle = 0; // 初始化卫星的角度
+    // 返回轨道、卫星和卫星角度的对象
+    return { orbit, satellite, satelliteAngle };
+  }
+
+  // 使用封装的函数创建一个轨道和卫星，指定初始角度
+  const { orbit, satellite, satelliteAngle: initialAngle } = createOrbitAndSatellite(7, Math.PI / 4, Math.PI / 6, Math.PI / 2);
+  let satelliteAngle = initialAngle; // 将初始角度赋给卫星的角度变量
 
   // 处理窗口大小变化
   window.addEventListener('resize', () => {
@@ -101,10 +107,10 @@
 
     // 计算卫星的新位置
     satellite.position.x = 7 * Math.cos(satelliteAngle); // 卫星的 X 坐标
-    satellite.position.z = 7 * Math.sin(satelliteAngle) * Math.cos(orbitInclineAnglex); // 卫星的 Z 坐标
+    satellite.position.z = 7 * Math.sin(satelliteAngle) * Math.cos(Math.PI / 4); // 卫星的 Z 坐标
 
     // 轨道的倾斜角度，使卫星沿倾斜轨道运动
-    satellite.position.y = 7 * Math.sin(satelliteAngle) * Math.sin(orbitInclineAnglex); // 卫星的 Y 坐标，根据倾斜角度调整
+    satellite.position.y = 7 * Math.sin(satelliteAngle) * Math.sin(Math.PI / 4); // 卫星的 Y 坐标，根据倾斜角度调整
 
     // 更新控制器
     controls.update();
