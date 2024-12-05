@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D地球与卫星轨道</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+    // 场景设置
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 创建地球球体
+    const earthGeometry = new THREE.SphereGeometry(6.4, 360, 180);
+    const textureLoader = new THREE.TextureLoader();
+    const earthTexture = textureLoader.load('https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg');
+    const earthMaterial = new THREE.MeshStandardMaterial({
+        map: earthTexture,
+        emissive: new THREE.Color(0xeeeeee),
+        emissiveIntensity: 0.1
+    });
+    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    scene.add(earth);
+
+    // 添加点光源实现地球的光晕效果
+    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    pointLight.position.set(10, 10, 10);
+    scene.add(pointLight);
+
+    // 添加环境光源提供柔和的光照
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    // 设置摄像机位置
+    camera.position.z = 20;
+
+    // 添加简单的星空背景
+    const starsGeometry = new THREE.SphereGeometry(50, 64, 64);
+    const starsMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.BackSide,
+        map: textureLoader.load('https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_stars.jpg')
+    });
+    const stars = new THREE.Mesh(starsGeometry, starsMaterial);
+    scene.add(stars);
+
+    // 初始化 OrbitControls 以便可以用鼠标拖动
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+    // 创建卫星并显示其位置
+    function createSatellite(lon, lat, radius) {
+        const satelliteGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+        const satelliteMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+        
+        // 将卫星位置转换为 3D 坐标
+        const x = radius * Math.cos(lon);
+        const y = radius * Math.sin(lat);
+        const z = radius * Math.sin(lon);
+
+        satellite.position.set(x, y, z);
+        scene.add(satellite);
+
+        return satellite;
+    }
+
+    // 创建轨迹的几何体和材质
+    const pathGeometry = new THREE.BufferGeometry();
+    const pathMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 });
+    const pathLine = new THREE.Line(pathGeometry, pathMaterial);
+    scene.add(pathLine);
+
+    // 存储卫星的路径
+    let satellitePath = [];
+
+    // 获取 ISS（国际空间站）的位置数据
+    async function updateSatellitePosition() {
+        try {
+            const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+            const data = await response.json();
+
+            const lat = data.latitude * Math.PI / 180; // 转换为弧度
+            const lon = -data.longitude * Math.PI / 180; // 转换为弧度
+            const h = data.altitude / 1000 + 6.4; // 高度
+            // 将卫星位置转换为 3D 坐标
+            const x = h * Math.cos(lon);
+            const y = h * Math.sin(lat);
+            const z = h * Math.sin(lon);
+            // 更新卫星位置
+            satellite.position.set(x, y, z);
+
+            // 将卫星位置添加到轨迹数组
+            satellitePath.push(new THREE.Vector3(x, y, z));
+
+            // 更新路径的几何体
+            const pathPositions = [];
+            satellitePath.forEach(position => {
+                pathPositions.push(position.x, position.y, position.z);
+            });
+
+            // 更新路径
+            pathGeometry.setAttribute('position', new THREE.Float32BufferAttribute(pathPositions, 3));
+            pathGeometry.attributes.position.needsUpdate = true;
+
+            setTimeout(updateSatellitePosition, 1500); // 每1.5s执行
+        } catch (error) {
+            console.error("Error fetching satellite data:", error);
+        }
+    }
+
+    // 初始化卫星并显示
+    var radius = 6.7;  // 卫星轨道半径
+    const satellite = createSatellite(63 * Math.PI / 180, -18 * Math.PI / 180, 6.7); // 初始位置为 0，经度和纬度
+
+    // 处理窗口大小变化
+    window.addEventListener('resize', () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+    });
+
+    // 动画函数
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // 更新控制器
+        controls.update();
+
+        // 渲染场景
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    updateSatellitePosition();
+</script>
+</body>
+</html>

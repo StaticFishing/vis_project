@@ -40,12 +40,6 @@
 
         const path = d3.geoPath().projection(projection);
 
-        // 动态调整投影的纵向缩放因子，模拟透视效果
-        function perspectiveScale(lat) {
-            const maxLat = 90; // 最大纬度
-            const scaleFactor = 1 - Math.abs(lat) / maxLat * 0.5;
-            return scaleFactor > 0.3 ? scaleFactor : 0.3;
-        }
 
         // 请求卫星实时位置的模拟函数
         function getSatellitePosition() {
@@ -79,8 +73,6 @@
             // 打印鼠标坐标
             console.log("Mouse position:", mouseX, mouseY);
 
-           // 设置硬编码位置以测试是否能看到信息框
-           infoBox.style("top", "100px").style("left", "100px");
 
             // 显示卫星信息框，位置跟随鼠标
             infoBox.style("display", "block")
@@ -154,9 +146,6 @@
                 function updateSatellitePosition() {
                     getSatellitePosition().then(position => {
                         satellitePath.push(position);
-                        if (satellitePath.length > 50) {
-                            satellitePath.shift(); // 保持路径长度为50
-                        }
 
                         // 绘制卫星路径
                         svg.selectAll(".satelliteTrail")
@@ -178,8 +167,8 @@
                             .attr("cx", projection([position.lon, position.lat])[0])
                             .attr("cy", projection([position.lon, position.lat])[1]);
 
-                        // 每秒更新卫星位置
-                        setTimeout(updateSatellitePosition, 1000);
+                        // 每1.5秒更新卫星位置
+                        setTimeout(updateSatellitePosition, 1500);
                     });
                 }
 
