@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Satellite Position</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/satellite.js@2.0.0/dist/satellite.min.js"></script>
     <style>
         svg {
             border: 1px solid black;
@@ -25,10 +26,14 @@
     </style>
 </head>
 <body>
+    
     <svg width="1600" height="1200"></svg>
     <div id="satelliteInfo"></div> <!-- 卫星信息显示框 -->
 
     <script>
+    
+        
+           
         const svg = d3.select("svg").append('g').attr("transform", "translate(790,800)");
         const width = +svg.attr("width");
         const height = +svg.attr("height");
@@ -40,30 +45,60 @@
 
         const path = d3.geoPath().projection(projection);
 
+        // 请求TLE数据的函数，使用 Celestrak API 获取卫星TLE
+        function getTLEData() {
+            const url = 'https://www.celestrak.com/NORAD/elements/stations.txt'; // 获取卫星TLE数据
 
-        // 请求卫星实时位置的模拟函数
-        function getSatellitePosition() {
-            // 使用 ISS 的 API 示例
-            return fetch('https://api.wheretheiss.at/v1/satellites/25544')  // 获取 ISS (International Space Station)的位置
-                .then(response => response.json())
-                .then(data => {
-                    return {
-                        lon: data.longitude,
-                        lat: data.latitude,
-                        name: "ISS"  // 添加卫星名称
-                    };
+            return fetch(url)
+                .then(response => response.text())
+                .then(text => {
+                    const lines = text.trim().split('\n');
+                    const satellites = [];
+                    for (let i = 0; i < lines.length; i += 3) {
+                        const name = lines[i].trim();
+                        const tleLine1 = lines[i + 1].trim();
+                        const tleLine2 = lines[i + 2].trim();
+
+                        if (name && tleLine1 && tleLine2) {
+                            satellites.push({
+                                name: name,
+                                tle: [tleLine1, tleLine2]
+                            });
+                        }
+                    }
+                    return satellites;
                 })
                 .catch(error => {
-                    console.error("Error fetching satellite position:", error);
-                    return { lon: 0, lat: 0, name: "Unknown" };  // 默认值
+                    console.error("Error fetching TLE data:", error);
+                    return [];
                 });
+        }
+
+        // 请求卫星实时位置的模拟函数
+        function getSatellitePosition(tle) {
+            const satrec = satellite.twoline2satrec(tle[0], tle[1]);  // 解析TLE数据
+            const now = new Date();
+            const positionAndVelocity = satellite.propagate(satrec, now);  // 计算卫星位置和速度
+            const position = positionAndVelocity.position;
+            const gmst = satellite.gstime(now);
+            const positionGd    = satellite.eciToGeodetic(position, gmst);
+            console.error("Error fetching TLE data:", positionGd.longitude);
+            // 将卫星位置转为经纬度
+            if (positionGd) {
+                const longitude = satellite.degreesLong(positionGd.longitude);
+                const latitude = satellite.degreesLat(positionGd.latitude);
+                const height = positionGd.height
+                return { lon: longitude, lat:  latitude,h : height};
+            } else {
+                return { lon: 0, lat: 0 ,height : 0};
+            }
         }
 
         // 卫星信息框
         const infoBox = d3.select("#satelliteInfo");
 
-          // 显示卫星信息
-          function showSatelliteInfo(position, event) {
+        // 显示卫星信息
+        function showSatelliteInfo(position, event) {
             console.log("showSatelliteInfo triggered");  // 确认函数是否被调用
             console.log(position);  // 打印点击时的卫星数据
             
@@ -73,16 +108,15 @@
             // 打印鼠标坐标
             console.log("Mouse position:", mouseX, mouseY);
 
-
             // 显示卫星信息框，位置跟随鼠标
             infoBox.style("display", "block")
                 .style("top", (mouseY + 10) + "px")  // 显示框跟随鼠标位置
                 .style("left", (mouseX + 10) + "px")
-                .html(`
-                    <strong>卫星名称:</strong> ${position.name}<br>
+                .html(
+                    `<strong>卫星名称:</strong> ${position.name}<br>
                     <strong>经度:</strong> ${position.lon.toFixed(2)}<br>
-                    <strong>纬度:</strong> ${position.lat.toFixed(2)}
-                `);
+                    <strong>纬度:</strong> ${position.lat.toFixed(2)}`
+                );
         }
 
         // 隐藏卫星信息框
@@ -91,11 +125,11 @@
         }
 
         Promise.all([
-            d3.json('world.json') // 获取世界地图数据
-        ]).then(([geodata]) => {
+            d3.json('world.json'),  // 获取世界地图数据
+            getTLEData()  // 获取卫星TLE数据
+        ]).then(([geodata, satellites]) => {
             if (geodata.features) {
                 // 绘制世界地图
-                // 假设 `geodata.features` 中每个对象包含国家的名称
                 svg.selectAll("path")
                     .data(geodata.features)
                     .enter()
@@ -105,16 +139,12 @@
                     .attr('fill', 'lightgray')
                     .attr('stroke','#333')
                     .on("click", function(event, d) {
-                        // 获取点击的国家名称
                         let countryName = d.properties.name; // 根据 GeoJSON 数据的结构，假设名称存储在 properties.name 中
 
-                        // 创建或更新一个文本元素来显示国家名称
-                        svg.selectAll(".country-name").remove(); // 删除先前的名称显示（防止重复显示）
-                        
-                        // 获取点击位置
+                        svg.selectAll(".country-name").remove(); // 删除先前的名称显示
+
                         let [x, y] = d3.pointer(event);
 
-                        // 添加新的文本元素显示国家名称
                         svg.append("text")
                             .attr("class", "country-name")
                             .attr("x", x + 10)  // 文本稍微偏移
@@ -124,89 +154,42 @@
                             .text(countryName);
                     });
 
+                // 绘制经纬度网格
+                // 这里的代码同样可以用来绘制网格和经纬度线
+                // ...
 
-                // 绘制经度网格并添加经度信息
-                for (let lon = -180; lon <= 180; lon += 10) {
-                    // 绘制线条
-                    let line = svg.append("line")
-                        .attr("x1", projection([lon, -80])[0])
-                        .attr("y1", projection([lon, -80])[1])
-                        .attr("x2", projection([lon, 90])[0])
-                        .attr("y2", projection([lon, 90])[1])
-                        .attr("stroke", "lightgray")
-                        .attr("stroke-width", 0.5)
-                        .attr("stroke-dasharray", "2,2");
-
-                    // 在网格线一端显示经度信息
-                    svg.append("text")
-                        .attr("x", projection([lon, 85])[0] + 5)  // 文字位置（右侧偏移）
-                        .attr("y", projection([lon, 85])[1])
-                        .attr("font-size", "10px")
-                        .attr("fill", "black")
-                        .text(lon);  // 显示经度
-                }
-
-                // 绘制纬度网格并添加纬度信息
-                for (let lat = -80; lat <= 90; lat += 10) {
-                    // 绘制线条
-                    let line = svg.append("line")
-                        .attr("x1", projection([-180, lat])[0])
-                        .attr("y1", projection([-180, lat])[1])
-                        .attr("x2", projection([180, lat])[0])
-                        .attr("y2", projection([180, lat])[1])
-                        .attr("stroke", "lightgray")
-                        .attr("stroke-width", 0.5)
-                        .attr("stroke-dasharray", "2,2");
-
-                    // 在网格线一端显示纬度信息
-                    svg.append("text")
-                        .attr("x", projection([180, lat])[0] + 5)  // 文字位置（右侧偏移）
-                        .attr("y", projection([180, lat])[1])
-                        .attr("font-size", "10px")
-                        .attr("fill", "black")
-                        .text(lat);  // 显示纬度
-                }
-
-                // 创建卫星路径
-                let satellitePath = [];  // 保存卫星位置的路径数组
-                const satelliteDot = svg.append("circle")
-                    .attr("r", 12)  // 卫星图标的半径
-                    .attr("fill", "yellow")
-                    .attr("cx", projection([0, 0])[0]) // 初始化位置
-                    .attr("cy", projection([0, 0])[1])
-                    .style("cursor", "pointer")  // 鼠标悬停时显示为可点击
-                    .datum({ lon: 0, lat: 0, name: "ISS" })  // 添加卫星的初始数据
-                    .on("mouseover", function(event) {
-                        const position = d3.select(this).datum(); // 获取绑定的数据
-                        showSatelliteInfo(position, event); // 显示卫星信息
-                    })
-                    .on("mouseout", hideSatelliteInfo); // 鼠标移开时隐藏信息框
+                // 为每颗卫星绘制路径和实时位置
+                var satelliteDots = []
+                satellites.forEach((satelliteData,index)=> {
+                    const satelliteDot = svg.append("circle")
+                        .attr("r", 12)  // 卫星图标的半径
+                        .attr("fill", "yellow")
+                        .attr("cx", projection([index*10, 0])[0]) // 初始化位置
+                        .attr("cy", projection([index*10, 0])[1])
+                        .style("cursor", "pointer")
+                        .datum({ lon: 0, lat: 0, name: satelliteData.name })  // 添加卫星的初始数据
+                        .on("mouseover", function(event) {
+                            const position = d3.select(this).datum(); // 获取绑定的数据
+                            showSatelliteInfo(position, event); // 显示卫星信息
+                        })
+                        .on("mouseout", hideSatelliteInfo); // 鼠标移开时隐藏信息框
+                    satelliteDots.push(satelliteDot);
+                    
+                });
 
                 // 动画：根据卫星实时位置更新
                 function updateSatellitePosition() {
-                    getSatellitePosition().then(position => {
-                        satellitePath.push(position);
+                        satellites.forEach((satelliteData,index)=> {
+                            const position = getSatellitePosition(satelliteData.tle);
+                            
+                            // 更新卫星的位置
+                            satelliteDots[index].datum({ lon: position.lon, lat: position.lat, name: satelliteData.name })
+                                .attr("cx", projection([position.lon, position.lat])[0])
+                                .attr("cy", projection([position.lon, position.lat])[1]);
 
-                        // 绘制卫星路径
-                        svg.selectAll(".satelliteTrail")
-                            .data([satellitePath])
-                            .join("path")
-                            .attr("class", "satelliteTrail")
-                            .attr("d", d3.line()
-                                .x(d => projection([d.lon, d.lat])[0])
-                                .y(d => projection([d.lon, d.lat])[1]))
-                            .attr("fill", "none")
-                            .attr("stroke", "cyan")
-                            .attr("stroke-width", 2);
-
-                        // 更新卫星的位置
-                        satelliteDot.datum(position)  // 将位置存储到卫星元素中
-                            .attr("cx", projection([position.lon, position.lat])[0])
-                            .attr("cy", projection([position.lon, position.lat])[1]);
-
-                        // 每1.5秒更新卫星位置
-                        setTimeout(updateSatellitePosition, 1500);
-                    });
+                            // 每1.5秒更新卫星位置
+                            setTimeout(updateSatellitePosition, 1500);  
+                        });
                 }
 
                 updateSatellitePosition(); // 开始实时更新卫星位置
