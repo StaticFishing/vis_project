@@ -43,8 +43,8 @@
 
         // 请求TLE数据的函数，使用 Celestrak API 获取卫星TLE
         function getTLEData() {
-            const url = 'https://www.celestrak.com/NORAD/elements/stations.txt'; // 获取卫星TLE数据
-
+            //const url = 'https://www.celestrak.com/NORAD/elements/stations.txt'; // 获取卫星TLE数据
+            const url = 'satellite_BEIDOU.txt';
             return fetch(url)
                 .then(response => response.text())
                 .then(text => {
