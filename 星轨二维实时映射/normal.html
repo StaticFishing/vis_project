@@ -25,6 +25,15 @@
         #button-container { position: absolute; top: 10px; right: 10px; z-index: 100; }
         button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button:hover { background-color: #0056b3; }
+        #time-control {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            z-index: 100;
+        }
+        #time-control label {
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -34,6 +43,11 @@
     <div id="button-container">
         <button id="navigate-button" >返回</button>
     </div>
+    <div id="time-control">
+        <label for="time-slider">时间速度:</label>
+        <input type="range" id="time-slider" min="1" max="1000" value="1" step="1">
+        <span id="time-multiplier">1x</span>
+    </div>
     <script>
         document.getElementById('navigate-button').addEventListener('click', () => {
             window.location.href = '../三维地球与轨道卫星/earth_BEIDOU.html'; // Replace with your target URL
@@ -41,8 +55,6 @@
         const svg = d3.select("svg").append('g').attr("transform", "translate(790,800)");
         const width = +svg.attr("width");
         const height = +svg.attr("height");
-
-        // 使用 Mercator 投影
         const projection = d3.geoMercator()
             .scale(250)
             .translate([width / 2, height / 1.5]);
@@ -91,20 +103,27 @@
         }
         let startTime = new Date(); // 初始化模拟时间
         let simulatedTime = startTime.getTime(); // 虚拟时间的起点
+        let timeMultiplier = 1;  // 默认时间倍数为1
+
+        // 添加滑块控制时间倍数
+        const timeSlider = document.getElementById("time-slider");
+        const timeMultiplierDisplay = document.getElementById("time-multiplier");
+
+        timeSlider.addEventListener("input", function() {
+            timeMultiplier = parseInt(timeSlider.value);
+            timeMultiplierDisplay.textContent = `${timeMultiplier}x`;
+        });
         // 请求卫星实时位置的模拟函数
         function getSatellitePosition(tle) {
            
-            simulatedTime += 5 * 150; // 每次更新加速 1500ms
-            const now = new Date(simulatedTime); // 使用虚拟时间
+            simulatedTime += timeMultiplier*15;
+            const now = new Date(simulatedTime); 
             const satrec = satellite.twoline2satrec(tle[0], tle[1]);
             const positionAndVelocity = satellite.propagate(satrec, now);
             const position = positionAndVelocity.position;
            
             const gmst = satellite.gstime(startTime);
             const positionGd = satellite.eciToGeodetic(position, gmst);
-
-            // 将弧度约束在有效范围内
-            //const constrainedLongitude = positionGd.longitude > Math.PI ? positionGd.longitude % Math.PI : (positionGd.longitude < -Math.PI ? -((-positionGd.longitude)%Math.PI) : positionGd.longitude);
             const constrainedLongitude = normalizeLongitude(positionGd.longitude);
             const constrainedLatitude = positionGd.latitude > Math.PI / 2 ? Math.PI / 2 : (positionGd.latitude < -Math.PI / 2 ? -Math.PI / 2 : positionGd.latitude);
 
@@ -233,11 +252,9 @@
                             const position = d3.select(this).datum();
                             showSatelliteInfo(position, event);
                             satelliteDots[index].attr("r",realRadius[index]);
-                            const cx = parseFloat(satelliteDots[index].attr("cx"));  // 获取并转换 'cx' 属性为数字
-                            const r = parseFloat(satelliteDots[index].attr("r"));    // 获取并转换 'r' 属性为数字
-
-                            const rightest = cx + r;  // 计算最右边的坐标值
-                           
+                            const cx = parseFloat(satelliteDots[index].attr("cx"));  
+                            const r = parseFloat(satelliteDots[index].attr("r"));    
+                            const rightest = cx + r;  
                             const leftest = cx - r;
                             console.log(satelliteDots[index].attr("cx"),leftest);
                             if(rightest > 800)
@@ -251,23 +268,23 @@
                                 .attr("fill", colors[index%10])
                                 .attr("stroke-width", 1)
                                 .attr("opacity", 0.7)
-                                .attr("class", "satellite-overlay");  // 添加 class 标识
+                                .attr("class", "satellite-overlay");  
 
                                 svg.append("rect")
                                 .attr("x", -1250)
                                 .attr("y", -800)
-                                .attr("width",450)  // 覆盖右侧部分
+                                .attr("width",450)  
                                 .attr("height", 1200)
                                 .attr("fill", "white")  // 使用白色覆盖超出部分
-                                .attr("class", "satellite-overlay");  // 添加 class 标识
+                                .attr("class", "satellite-overlay");  
 
                                 svg.append("rect")
                                 .attr("x", 800)
                                 .attr("y", -800)
-                                .attr("width",500)  // 覆盖右侧部分
+                                .attr("width",500)  
                                 .attr("height", 1200)
-                                .attr("fill", "white")  // 使用白色覆盖超出部分
-                                .attr("class", "satellite-overlay");  // 添加 class 标识
+                                .attr("fill", "white")  
+                                .attr("class", "satellite-overlay");  
                             }
 
                             else if(leftest < -800)
@@ -306,7 +323,7 @@
                             satelliteDots[index].attr("r",12);
                             svg.selectAll(".satellite-overlay").remove();  // 根据 class 名称选择并移除
                         })
-                        .attr("opacity", 0.7);  // 设置透明度
+                        .attr("opacity", 0.7);  
                     // 初始化轨迹路径
                     satelliteData.trajectoryPath = svg.append("path")
                         .attr("fill", "none")
@@ -322,29 +339,20 @@
                 // 动画：根据卫星实时位置更新
                 function updateSatellitePosition() {
                     satellites.forEach((satelliteData, index) => {
-                        
                         const position = getSatellitePosition(satelliteData.tle);
-
-
                         // 更新卫星的位置
                         satelliteDots[index].datum({ lon: position.lon, lat: position.lat, name: satelliteData.name })
                             .attr("cx", projection([position.lon, position.lat])[0])
                             .attr("cy", projection([position.lon, position.lat])[1]);
                         let altitude = position.height;
-                       
-                        // 计算轨道半径：根据高度设置卫星圆形的半径，假设轨道高度越低，圆形半径越大
-                        const earthRadius = 6371;  // 地球的半径，单位是 km
-                        
+                        const earthRadius = 6371;  
                         // 计算视距半径
                         const viewRadius = earthRadius*(Math.acos(earthRadius/(earthRadius+altitude)));
-                        // 缩放视距半径以适应画布（单位：像素）
                         const width = 1600;
                         const height = 1200;
                         const canvasViewRadius = viewRadius * Math.sqrt(width*height/(4*Math.PI*earthRadius*earthRadius));
                         realRadius[index]= canvasViewRadius;
-        
                         // 更新轨迹
-                        
                         if(lastlon[index]-position.lon > 180 || position.lon - lastlon[index]> 180)
                         {
                             satelliteData.trajectory = [];
