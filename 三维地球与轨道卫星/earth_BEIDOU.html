@@ -1,52 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Earth and Satellite Orbits</title>
     <style>
-        body { margin: 0; display: flex; overflow: hidden; }
-        #container { display: flex; flex-direction: row; width: 100%; height: 100%; }
-        #3d-view { flex: 2; }
-        #chart-container { flex: 1; padding: 10px; background-color: #f9f9f9; overflow-y: auto; }
-        canvas { display: block; }
+        body {
+            margin: 0;
+            display: flex;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            height: 100%;
+        }
+
+        #3d-view {
+            flex: 2;
+        }
+
+        #chart-container {
+            flex: 1;
+            padding: 10px;
+            background-color: #f9f9f9;
+            overflow-y: auto;
+        }
+
+        canvas {
+            display: block;
+        }
     </style>
 </head>
+
 <body>
-<style>
-    body {
-        margin: 0;
-        display: flex;
-        overflow: hidden;
-        height: 100vh; /* 保证充满屏幕高度 */
-    }
-    #container {
-        display: flex;
-        flex-direction: row;
-        width: 100%;
-        height: 100%; /* 确保内部容器充满父容器 */
-    }
-    #3d-view {
-        flex: 2;
-    }
-    #chart-container {
-        flex: 1;
-        padding: 10px;
-        background-color: #f9f9f9;
-        overflow-y: auto; /* 确保可以滚动 */
-        height: 100%; /* 高度继承父容器 */
-        box-sizing: border-box; /* 包含内边距在高度计算内 */
-    }
-    #button-container { position: absolute; top: 10px; right: 10px; z-index: 100; }
-    button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background-color: #0056b3; }
-</style>
-<div id="button-container">
-        <button id="navigate-button" >查看对地信息</button>
-</div>
-<div id="111">
-    <button id="222" >星链卫星</button>
-</div>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            overflow: hidden;
+            height: 100vh;
+            /* 保证充满屏幕高度 */
+        }
+
+        #container {
+            display: flex;
+            flex-direction: row;
+            width: 100%;
+            height: 100%;
+            /* 确保内部容器充满父容器 */
+        }
+
+        #3d-view {
+            flex: 2;
+        }
+
+        #chart-container {
+            flex: 1;
+            padding: 10px;
+            background-color: #f9f9f9;
+            overflow-y: auto;
+            /* 确保可以滚动 */
+            height: 100%;
+            /* 高度继承父容器 */
+            box-sizing: border-box;
+            /* 包含内边距在高度计算内 */
+        }
+
+        #button-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+        }
+
+        button {
+            width: 80%;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+        #111{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            display: flex;
+            flex-direction: row; /* 水平排列按钮 */
+            flex-wrap: wrap; /* 允许换行 */
+            gap: 10px; /* 按钮之间的间距 */
+        }
+    </style>
+    <div id="button-container">
+        <button id="navigate-button">查看对地信息</button>
+    </div>
+    <div id="111">
+        <button id="222">星链卫星</button>
+        <button id="toggle-background">切换背景</button>
+        <button id="toggle-satellites">切换卫星显示</button>
+        <button id="toggle-orbits">切换轨道显示</button>
+    </div>
     <div id="container">
         <div id="3d-view"></div>
         <div id="chart-container">
@@ -54,326 +118,357 @@
             <div id="charts"></div>
         </div>
     </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // Navigate button event
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Navigate button event
         document.getElementById('navigate-button').addEventListener('click', () => {
             window.location.href = '../星轨二维实时映射/normal.html'; // Replace with your target URL
         });
-    document.getElementById('222').addEventListener('click', () => {
-        window.location.href = 'earth_stars-link.html'; // Replace with your target URL
-    });
+        document.getElementById('222').addEventListener('click', () => {
+            window.location.href = 'earth_stars-link.html'; // Replace with your target URL
+        });
+        let satellitesVisible = true;
+        let orbitsVisible = true;
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth * 0.66, window.innerHeight);
-    document.getElementById('3d-view').appendChild(renderer.domElement);
-
-    // 监听窗口大小变化
-    window.addEventListener('resize', resizeRenderer);
-
-    // 初始化时调用调整函数
-    resizeRenderer();
-
-    // Create Earth sphere
-    const earthGeometry = new THREE.SphereGeometry(6.4, 360, 180);
-    const textureLoader = new THREE.TextureLoader();
-    const earthTexture = textureLoader.load('earth.jpg');
-    const earthMaterial = new THREE.MeshStandardMaterial({
-        map: earthTexture,
-        emissive: new THREE.Color(0xeeeeee),
-        emissiveIntensity: 0.1
-    });
-    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-    scene.add(earth);
-
-    // Add lighting
-    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-    pointLight.position.set(10, 10, 10);
-    scene.add(pointLight);
-
-    const ambientLight = new THREE.AmbientLight(0x404040);
-    scene.add(ambientLight);
-
-    // Camera position
-    camera.position.z = 20;
-    // https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_stars.jpg
-    //Add star background
-    const starsGeometry = new THREE.SphereGeometry(50, 64, 64);
-    const starsMaterial = new THREE.MeshBasicMaterial({
-        color: 0x111111,
-        side: THREE.BackSide,
-        map: textureLoader.load('raw.jpg')
-    });
-    const stars = new THREE.Mesh(starsGeometry, starsMaterial);
-    console.log(stars)
-    scene.add(stars);
-
-    // Initialize OrbitControls
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-
-    // Store satellites and their paths
-    const satellites = [];
-    const satellitePaths = [];
-
-    const chartContainer = document.getElementById('charts');
-    const satelliteCharts = {};
-
-    function createSatellite(color) {
-        const satelliteGeometry = new THREE.SphereGeometry(1, 16, 16);
-        const satelliteMaterial = new THREE.MeshStandardMaterial({ color });
-        const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
-        scene.add(satellite);
-        return satellite;
-    }
-
-
-    let startTime = new Date(); // 初始化模拟时间
-    let simulatedTime = startTime.getTime(); // 虚拟时间的起点
-    const timeMultiplier = 100; // 时间加速倍数，例如10倍速度
-    function updateSatellites() {
-        // 更新虚拟时间
-        simulatedTime += timeMultiplier * 150; // 每次更新加速 1500ms
-        const now = new Date(simulatedTime); // 使用虚拟时间
-
-        satellites.forEach((sat, index) => {
-            const positionAndVelocity = satellite.propagate(sat.satrec, now);
-            const position = positionAndVelocity.position;
-
-            if (position) {
-                const x = position.x / 1000;
-                const y = position.y / 1000;
-                const z = position.z / 1000;
-
-                const height = Math.sqrt(position.x * position.x + position.y * position.y + position.z * position.z) - 6371;
-
-                sat.object.position.set(x, y, z);
-
-                // Update satellite chart data
-                const chart = satelliteCharts[sat.name];
-                if (chart) {
-                    const currentTime = Math.trunc((simulatedTime / 1000).toFixed(1)); // 虚拟时间戳
-
-                    // 确保只保留最近 100 次数据
-                    if (chart.data.labels.length >= 100) {
-                        chart.data.labels.shift(); // 移除最旧的时间戳
-                        chart.data.datasets[0].data.shift(); // 移除最旧的高度数据
-                    }
-
-                    chart.data.labels.push(currentTime % 100000);
-                    chart.data.datasets[0].data.push(height);
-                    chart.update();
-                }
-            }
+        // Toggle satellite visibility
+        document.getElementById('toggle-satellites').addEventListener('click', () => {
+            satellitesVisible = !satellitesVisible;
+            satellites.forEach((sat) => {
+                sat.object.visible = satellitesVisible;
+            });
         });
 
-        setTimeout(updateSatellites, 15); // 每隔15毫秒更新一次
-    }
+        // Toggle orbit visibility
+        document.getElementById('toggle-orbits').addEventListener('click', () => {
+            orbitsVisible = !orbitsVisible;
+            satellitePaths.forEach((path) => {
+                path.pathLine.visible = orbitsVisible;
+            });
+        });
+        let currentBackground = 1;
+        document.getElementById('toggle-background').addEventListener('click', () => {
+            if (currentBackground === 1) {
+                starsMaterial.map = backgroundTexture2;
+                currentBackground = 2;
+            } else {
+                starsMaterial.map = backgroundTexture1;
+                currentBackground = 1;
+            }
+            starsMaterial.needsUpdate = true; // Ensure the material updates
+        });
 
 
-
-    // Handle window resizing
-    window.addEventListener('resize', () => {
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth * 0.66, window.innerHeight);
-        camera.aspect = window.innerWidth * 0.66 / window.innerHeight;
-        camera.updateProjectionMatrix();
-    });
+        document.getElementById('3d-view').appendChild(renderer.domElement);
 
-    // Animation loop
-    function animate() {
-        requestAnimationFrame(animate);
-        moveCamera();
-        controls.update();
-        renderer.render(scene, camera);
-    }
+        // 监听窗口大小变化
+        window.addEventListener('resize', resizeRenderer);
 
-    // 在初始化和窗口调整时动态设置相机和渲染器
-    function resizeRenderer() {
-        const container = document.getElementById('3d-view');
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        // 初始化时调用调整函数
+        resizeRenderer();
 
-        renderer.setSize(width, height);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-    }
-    // Function to calculate a circular orbit based on the satellite's TLE
-    function calculateOrbit(satrec, points = 1000) {
-        const orbitPositions = [];
-        const now = new Date();
+        // Create Earth sphere
+        const earthGeometry = new THREE.SphereGeometry(6.4, 360, 180);
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('earth.jpg');
+        backgroundTexture1 = textureLoader.load('starmap_4k.jpg');
+        backgroundTexture2 = textureLoader.load('constellation_figures.jpg');
+        const earthMaterial = new THREE.MeshStandardMaterial({
+            map: earthTexture,
+            emissive: new THREE.Color(0xeeeeee),
+            emissiveIntensity: 0.1
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
 
-        for (let i = 0; i <= points; i++) {
-            // 动态调整步进大小
-            const positionAndVelocity = satellite.propagate(satrec, now);
-            const position = positionAndVelocity.position;
+        // Add lighting
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
 
-            if (position) {
-                const distanceFromEarthCenter = Math.sqrt(
-                    position.x ** 2 + position.y ** 2 + position.z ** 2
-                );
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
 
-                // 地球半径 (约6371 km)
-                const earthRadius = 6371;
-                const altitude = (distanceFromEarthCenter / 1000) - earthRadius;
+        // Camera position
+        camera.position.z = 20;
+        // https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_stars.jpg
+        //Add star background
+        const starsGeometry = new THREE.SphereGeometry(5000, 128, 128);
+        const starsMaterial = new THREE.MeshBasicMaterial({
+            side: THREE.BackSide,
+            map: backgroundTexture1
+        });
 
-                // 根据高度调整时间步进 (分钟)
-                let stepSize;
-                if (altitude < 500) {
-                    stepSize = 5; // 近地轨道，步进1分钟
-                } else if (altitude < 20000) {
-                    stepSize = 25; // 中地轨道，步进5分钟
-                } else {
-                    stepSize = 100; // 高地轨道，步进15分钟
-                }
+        const stars = new THREE.Mesh(starsGeometry, starsMaterial);
+        console.log(stars)
+        scene.add(stars);
 
-                const minutesSinceEpoch = i * stepSize;
-                const futureTime = new Date(now.getTime() + minutesSinceEpoch * 60 * 1000);
-                const futurePositionAndVelocity = satellite.propagate(satrec, futureTime);
-                const futurePosition = futurePositionAndVelocity.position;
+        // Initialize OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-                if (futurePosition) {
-                    const x = futurePosition.x / 1000;
-                    const y = futurePosition.y / 1000;
-                    const z = futurePosition.z / 1000;
-                    orbitPositions.push(new THREE.Vector3(x, y, z));
-                }
-            }
+        // Store satellites and their paths
+        const satellites = [];
+        const satellitePaths = [];
+
+        const chartContainer = document.getElementById('charts');
+        const satelliteCharts = {};
+
+        function createSatellite(color) {
+            const satelliteGeometry = new THREE.SphereGeometry(1, 16, 16);
+            const satelliteMaterial = new THREE.MeshStandardMaterial({ color });
+            const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+            scene.add(satellite);
+            return satellite;
         }
 
-        return orbitPositions;
-    }
 
-    // Function to create and add an orbit line
-    function createOrbitLine(positions, color = 0xffffff) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(positions);
-        const material = new THREE.LineBasicMaterial({ color });
-        const line = new THREE.Line(geometry, material);
-        return line;
-    }
+        let startTime = new Date(); // 初始化模拟时间
+        let simulatedTime = startTime.getTime(); // 虚拟时间的起点
+        const timeMultiplier = 100; // 时间加速倍数，例如10倍速度
+        function updateSatellites() {
+            // 更新虚拟时间
+            simulatedTime += timeMultiplier * 150; // 每次更新加速 1500ms
+            const now = new Date(simulatedTime); // 使用虚拟时间
 
-    async function fetchAndCreateSatellites() {
-        try {
-            const response = await fetch('satellite_BEIDOU.txt');
-            const tleData = await response.text();
-            const tleLines = tleData.split('\n').filter(line => line.trim() !== '');
+            satellites.forEach((sat, index) => {
+                const positionAndVelocity = satellite.propagate(sat.satrec, now);
+                const position = positionAndVelocity.position;
 
-            for (let i = 0; i < tleLines.length; i += 3) {
-                const satelliteName = tleLines[i].trim();
-                const tleLine1 = tleLines[i + 1].trim();
-                const tleLine2 = tleLines[i + 2].trim();
+                if (position) {
+                    const x = position.x / 1000;
+                    const y = position.y / 1000;
+                    const z = position.z / 1000;
 
-                const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
-                const satelliteObject = createSatellite(0xff0000); // Each satellite has a red sphere
-                satellites.push({ satrec, object: satelliteObject, name: satelliteName });
+                    const height = Math.sqrt(position.x * position.x + position.y * position.y + position.z * position.z) - 6371;
 
-                // Draw the satellite's orbit
-                const orbitPositions = calculateOrbit(satrec, 360);
-                const orbitLine = createOrbitLine(orbitPositions,  0xCCCCCC);
-                scene.add(orbitLine);
+                    sat.object.position.set(x, y, z);
 
-                // Create chart for real-time data
-                const chartDiv = document.createElement('div');
-                chartDiv.style.marginBottom = '20px';
-                chartDiv.innerHTML = `<h3>${satelliteName}</h3><canvas id="${satelliteName}-chart"></canvas>`;
-                chartContainer.appendChild(chartDiv);
+                    // Update satellite chart data
+                    const chart = satelliteCharts[sat.name];
+                    if (chart) {
+                        const currentTime = Math.trunc((simulatedTime / 1000).toFixed(1)); // 虚拟时间戳
 
-                const ctx = document.getElementById(`${satelliteName}-chart`).getContext('2d');
-                satelliteCharts[satelliteName] = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'Height (km)',
-                            data: [],
-                            borderColor: '#ff0000',
-                            fill: false,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: { display: true },
-                            title: { display: true, text: 'Real-time Height' }
-                        },
-                        scales: {
-                            x: { title: { display: true, text: 'Time (seconds)' } },
-                            y: { title: { display: true, text: 'Height (km)' } }
+                        // 确保只保留最近 100 次数据
+                        if (chart.data.labels.length >= 100) {
+                            chart.data.labels.shift(); // 移除最旧的时间戳
+                            chart.data.datasets[0].data.shift(); // 移除最旧的高度数据
                         }
+
+                        chart.data.labels.push(currentTime % 100000);
+                        chart.data.datasets[0].data.push(height);
+                        chart.update();
                     }
-                });
+                }
+            });
 
-                // Add a path for the satellite's actual trajectory
-                const pathGeometry = new THREE.BufferGeometry();
-                const pathMaterial = new THREE.LineBasicMaterial({ color: Math.random() * 0x666666 });
-                const pathLine = new THREE.Line(pathGeometry, pathMaterial);
-                satellitePaths.push({ pathLine, positions: [] });
+            setTimeout(updateSatellites, 15); // 每隔15毫秒更新一次
+        }
 
-                scene.add(pathLine);
+
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth * 0.66, window.innerHeight);
+            camera.aspect = window.innerWidth * 0.66 / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            moveCamera();
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // 在初始化和窗口调整时动态设置相机和渲染器
+        function resizeRenderer() {
+            const container = document.getElementById('3d-view');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+        // Function to calculate a circular orbit based on the satellite's TLE
+        function calculateOrbit(satrec, points = 1000) {
+            const orbitPositions = [];
+            const now = new Date();
+
+            for (let i = 0; i <= points; i++) {
+                // 动态调整步进大小
+                const positionAndVelocity = satellite.propagate(satrec, now);
+                const position = positionAndVelocity.position;
+
+                if (position) {
+                    const distanceFromEarthCenter = Math.sqrt(
+                        position.x ** 2 + position.y ** 2 + position.z ** 2
+                    );
+
+                    // 地球半径 (约6371 km)
+                    const earthRadius = 6371;
+                    const altitude = (distanceFromEarthCenter / 1000) - earthRadius;
+
+                    // 根据高度调整时间步进 (分钟)
+                    let stepSize;
+                    if (altitude < 500) {
+                        stepSize = 5; // 近地轨道，步进1分钟
+                    } else if (altitude < 20000) {
+                        stepSize = 25; // 中地轨道，步进5分钟
+                    } else {
+                        stepSize = 100; // 高地轨道，步进15分钟
+                    }
+
+                    const minutesSinceEpoch = i * stepSize;
+                    const futureTime = new Date(now.getTime() + minutesSinceEpoch * 60 * 1000);
+                    const futurePositionAndVelocity = satellite.propagate(satrec, futureTime);
+                    const futurePosition = futurePositionAndVelocity.position;
+
+                    if (futurePosition) {
+                        const x = futurePosition.x / 1000;
+                        const y = futurePosition.y / 1000;
+                        const z = futurePosition.z / 1000;
+                        orbitPositions.push(new THREE.Vector3(x, y, z));
+                    }
+                }
             }
 
-            updateSatellites();
-        } catch (error) {
-            console.error("Error fetching TLE data:", error);
+            return orbitPositions;
         }
-    }
-    // Movement variables
-    const moveSpeed = 0.1;
-    const shiftSpeedMultiplier = 2;
-    const rotationSpeed = 0.005;
-    let isShiftPressed = false;
 
-    // Key states
-    const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Shift') isShiftPressed = true;
-        if (event.key === ' ') keys['space'] = true;
-        keys[event.key.toLowerCase()] = true;
-    });
-
-    document.addEventListener('keyup', (event) => {
-        if (event.key === 'Shift') isShiftPressed = false;
-        if (event.key === ' ') keys['space'] = false;
-        keys[event.key.toLowerCase()] = false;
-    });
-
-    // Camera movement function
-    function moveCamera() {
-        const speed = isShiftPressed ? moveSpeed * shiftSpeedMultiplier : moveSpeed;
-
-        if (keys.w) {
-            camera.position.x -= Math.sin(camera.rotation.y) * speed;
-            camera.position.z -= Math.cos(camera.rotation.y) * speed;
+        // Function to create and add an orbit line
+        function createOrbitLine(positions, color = 0xffffff) {
+            const geometry = new THREE.BufferGeometry().setFromPoints(positions);
+            const material = new THREE.LineBasicMaterial({ color });
+            const line = new THREE.Line(geometry, material);
+            return line;
         }
-        if (keys.s) {
-            camera.position.x += Math.sin(camera.rotation.y) * speed;
-            camera.position.z += Math.cos(camera.rotation.y) * speed;
+
+        async function fetchAndCreateSatellites() {
+            try {
+                const response = await fetch('satellite_BEIDOU.txt');
+                const tleData = await response.text();
+                const tleLines = tleData.split('\n').filter(line => line.trim() !== '');
+
+                for (let i = 0; i < tleLines.length; i += 3) {
+                    const satelliteName = tleLines[i].trim();
+                    const tleLine1 = tleLines[i + 1].trim();
+                    const tleLine2 = tleLines[i + 2].trim();
+
+                    const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
+                    const satelliteObject = createSatellite(0xff0000); // Create satellite with red sphere
+                    satelliteObject.visible = satellitesVisible; // Set initial visibility
+                    satellites.push({ satrec, object: satelliteObject, name: satelliteName });
+
+                    // Draw the satellite's orbit
+                    const orbitPositions = calculateOrbit(satrec, 360);
+                    const orbitLine = createOrbitLine(orbitPositions, 0xCCCCCC);
+                    orbitLine.visible = orbitsVisible; // Set initial orbit visibility
+                    scene.add(orbitLine);
+                    satellitePaths.push({ pathLine: orbitLine, positions: [] });
+
+                    // Create chart for real-time data (unchanged)
+                    const chartDiv = document.createElement('div');
+                    chartDiv.style.marginBottom = '20px';
+                    chartDiv.innerHTML = `<h3>${satelliteName}</h3><canvas id="${satelliteName}-chart"></canvas>`;
+                    chartContainer.appendChild(chartDiv);
+
+                    const ctx = document.getElementById(`${satelliteName}-chart`).getContext('2d');
+                    satelliteCharts[satelliteName] = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Height (km)',
+                                data: [],
+                                borderColor: '#ff0000',
+                                fill: false,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: true },
+                                title: { display: true, text: 'Real-time Height' }
+                            },
+                            scales: {
+                                x: { title: { display: true, text: 'Time (seconds)' } },
+                                y: { title: { display: true, text: 'Height (km)' } }
+                            }
+                        }
+                    });
+
+                    scene.add(orbitLine);
+                }
+
+                updateSatellites();
+            } catch (error) {
+                console.error("Error fetching TLE data:", error);
+            }
         }
-        if (keys.a) {
-            camera.position.x -= Math.cos(camera.rotation.y) * speed;
-            camera.position.z += Math.sin(camera.rotation.y) * speed;
+
+        // Movement variables
+        const moveSpeed = 0.1;
+        const shiftSpeedMultiplier = 2;
+        const rotationSpeed = 0.005;
+        let isShiftPressed = false;
+
+        // Key states
+        const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Shift') isShiftPressed = true;
+            if (event.key === ' ') keys['space'] = true;
+            keys[event.key.toLowerCase()] = true;
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.key === 'Shift') isShiftPressed = false;
+            if (event.key === ' ') keys['space'] = false;
+            keys[event.key.toLowerCase()] = false;
+        });
+
+        // Camera movement function
+        function moveCamera() {
+            const speed = isShiftPressed ? moveSpeed * shiftSpeedMultiplier : moveSpeed;
+
+            if (keys.w) {
+                camera.position.x -= Math.sin(camera.rotation.y) * speed;
+                camera.position.z -= Math.cos(camera.rotation.y) * speed;
+            }
+            if (keys.s) {
+                camera.position.x += Math.sin(camera.rotation.y) * speed;
+                camera.position.z += Math.cos(camera.rotation.y) * speed;
+            }
+            if (keys.a) {
+                camera.position.x -= Math.cos(camera.rotation.y) * speed;
+                camera.position.z += Math.sin(camera.rotation.y) * speed;
+            }
+            if (keys.d) {
+                camera.position.x += Math.cos(camera.rotation.y) * speed;
+                camera.position.z -= Math.sin(camera.rotation.y) * speed;
+            }
+            if (keys.space) {
+                console.log("apace pressed")
+                camera.position.y += speed;
+            }
+            if (isShiftPressed && !keys.space) {
+                camera.position.y -= speed;
+            }
         }
-        if (keys.d) {
-            camera.position.x += Math.cos(camera.rotation.y) * speed;
-            camera.position.z -= Math.sin(camera.rotation.y) * speed;
-        }
-        if (keys.space) {
-            console.log("apace pressed")
-            camera.position.y += speed;
-        }
-        if (isShiftPressed && !keys.space) {
-            camera.position.y -= speed;
-        }
-    }
 
 
-    fetchAndCreateSatellites();
-    animate();
-</script>
+        fetchAndCreateSatellites();
+        animate();
+    </script>
 </body>
+
 </html>
