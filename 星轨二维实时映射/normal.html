@@ -26,7 +26,7 @@
 </head>
 <body>
     
-    <svg width="2000" height="1200" viewBox="-100 0 1600 1200" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg width="2500" height="1200" viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="satelliteInfo"></div> <!-- 卫星信息显示框 -->
 
     <script>
@@ -126,6 +126,7 @@
         // 隐藏卫星信息框
         function hideSatelliteInfo() {
             infoBox.style("display", "none");
+            
         }
 
         Promise.all([
@@ -197,7 +198,7 @@
 
                     // 在网格线一端显示纬度信息
                     svg.append("text")
-                        .attr("x", projection([180, lat])[0] + 5)  // 文字位置（右侧偏移）
+                        .attr("x", projection([180, lat])[0] - 10)  // 文字位置（右侧偏移）
                         .attr("y", projection([180, lat])[1])
                         .attr("font-size", "10px")
                         .attr("fill", "black")
@@ -209,7 +210,7 @@
                 const satelliteDots = [];
                 satellites.forEach((satelliteData, index) => {
                     const satelliteDot = svg.append("circle")
-                        .attr("r", 12+index*2)
+                        .attr("r", 12)
                         .attr("fill", colors[index%10])
                         .attr("cx", projection([0, 0])[0]) // 初始化位置
                         .attr("cy", projection([0, 0])[1])
@@ -218,8 +219,80 @@
                         .on("mouseover", function(event) {
                             const position = d3.select(this).datum();
                             showSatelliteInfo(position, event);
+                            satelliteDots[index].attr("r",realRadius[index]);
+                            const cx = parseFloat(satelliteDots[index].attr("cx"));  // 获取并转换 'cx' 属性为数字
+                            const r = parseFloat(satelliteDots[index].attr("r"));    // 获取并转换 'r' 属性为数字
+
+                            const rightest = cx + r;  // 计算最右边的坐标值
+                           
+                            const leftest = cx - r;
+                            console.log(satelliteDots[index].attr("cx"),leftest);
+                            if(rightest > 800)
+                            {
+                                let x = satelliteDots[index].attr("cx");
+                                let y = satelliteDots[index].attr("cy");
+                                svg.append("circle")
+                                .attr("r", r)
+                                .attr("cx", x-1600)
+                                .attr("cy", y)
+                                .attr("fill", colors[index%10])
+                                .attr("stroke-width", 1)
+                                .attr("opacity", 0.7)
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+
+                                svg.append("rect")
+                                .attr("x", -1250)
+                                .attr("y", -800)
+                                .attr("width",450)  // 覆盖右侧部分
+                                .attr("height", 1200)
+                                .attr("fill", "white")  // 使用白色覆盖超出部分
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+
+                                svg.append("rect")
+                                .attr("x", 800)
+                                .attr("y", -800)
+                                .attr("width",500)  // 覆盖右侧部分
+                                .attr("height", 1200)
+                                .attr("fill", "white")  // 使用白色覆盖超出部分
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+                            }
+
+                            else if(leftest < -800)
+                            {
+                                let x = parseFloat(satelliteDots[index].attr("cx"));
+                                let y = satelliteDots[index].attr("cy");
+                                svg.append("circle")
+                                .attr("r", r)
+                                .attr("cx", x+1600)
+                                .attr("cy", y)
+                                .attr("fill", colors[index%10])
+                                .attr("stroke-width", 1)
+                                .attr("opacity", 0.7)
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+
+                                svg.append("rect")
+                                .attr("x", -1250)
+                                .attr("y", -800)
+                                .attr("width",450)  // 覆盖右侧部分
+                                .attr("height", 1200)
+                                .attr("fill", "white")  // 使用白色覆盖超出部分
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+
+                                svg.append("rect")
+                                .attr("x", 800)
+                                .attr("y", -800)
+                                .attr("width",500)  // 覆盖右侧部分
+                                .attr("height", 1200)
+                                .attr("fill", "white")  // 使用白色覆盖超出部分
+                                .attr("class", "satellite-overlay");  // 添加 class 标识
+                            }
+
                         })
-                        .on("mouseout", hideSatelliteInfo)
+                        .on("mouseout", function(){
+                            hideSatelliteInfo();
+                            satelliteDots[index].attr("r",12);
+                            svg.selectAll(".satellite-overlay").remove();  // 根据 class 名称选择并移除
+                        })
                         .attr("opacity", 0.7);  // 设置透明度
                     // 初始化轨迹路径
                     satelliteData.trajectoryPath = svg.append("path")
@@ -232,16 +305,8 @@
                 });
                 
                 const lastlon = [];
+                const realRadius = [];
                 // 动画：根据卫星实时位置更新
-                // 创建clipPath元素
-                const clipPath = svg.append("defs")
-                    .append("clipPath")
-                    .attr("id", "clip-circle")
-                    .append("circle")
-                    .attr("cx", width / 2)  // 圆心位置
-                    .attr("cy", height / 2)
-                    .attr("r", Math.min(width, height) / 2);  // 半径设置为最小边的一半，确保在svg内显示
-
                 function updateSatellitePosition() {
                     satellites.forEach((satelliteData, index) => {
                         
@@ -253,67 +318,18 @@
                             .attr("cx", projection([position.lon, position.lat])[0])
                             .attr("cy", projection([position.lon, position.lat])[1]);
                         let altitude = position.height;
+                       
                         // 计算轨道半径：根据高度设置卫星圆形的半径，假设轨道高度越低，圆形半径越大
                         const earthRadius = 6371;  // 地球的半径，单位是 km
                         
                         // 计算视距半径
-                        const viewRadius = Math.sqrt(2 * earthRadius * altitude + Math.pow(altitude, 2));
+                        const viewRadius = earthRadius*(Math.acos(earthRadius/(earthRadius+altitude)));
                         // 缩放视距半径以适应画布（单位：像素）
                         const width = 1600;
                         const height = 1200;
                         const canvasViewRadius = viewRadius * Math.sqrt(width*height/(4*Math.PI*earthRadius*earthRadius));
-                        satelliteDots[index].attr("r", canvasViewRadius);
-                        
-
-                        const minLon = position.lon - viewRadius / earthRadius * (180 / Math.PI);
-                        const maxLon = position.lon + viewRadius / earthRadius * (180 / Math.PI);
-
-                         // 手动计算经纬度转换为像素坐标
-                        function lonLatToPixel(lon, lat) {
-                            const x = (lon + 180) * (width / 360);  // 将经度转换为画布上的 x 坐标
-                            const y = (90 - lat) * (height / 180);  // 将纬度转换为画布上的 y 坐标
-                            return [x, y];
-                        }
-
-                        // 检查是否跨越 180° 经线，并在另一边绘制圆
-                        if (minLon < -180) {
-                            // 计算另一个圆，跨越 -180° 经线
-                            const wrappedLon = position.lon + 360;  // 将经度加 360°，让其处于 [0, 180] 范围
-                            const [px, py] = lonLatToPixel(wrappedLon, position.lat);  // 计算像素坐标
-                            console.log(px,py);
-                            const viewCircle = svg.append("circle")
-                                .attr("cx", px)  // 使用计算后的像素坐标
-                                .attr("cy", py)
-                                .attr("clip-path", "url(#clip-circle)")  // 应用裁剪路径
-                                .attr("r", canvasViewRadius)  // 使用计算后的视距半径
-                                .attr("fill", "rgba(0, 255, 0, 0.2)")  // 半透明绿色
-                                .attr("stroke", "green")
-                                .attr("stroke-width", 1)
-                                .transition()  // 添加过渡效果
-                                .duration(1800)  // 1800ms 后消失
-                                .attr("opacity", 0)  // 透明度渐变到 0
-                                .remove();  // 完全消失后删除元素
-                        }
-
-                        if (maxLon > 180) {
-                            // 计算另一个圆，跨越 180° 经线
-                            const wrappedLon = position.lon - 360;  // 将经度减 360°，让其处于 [-180, 0] 范围
-                            const [px, py] = lonLatToPixel(wrappedLon, position.lat);  // 计算像素坐标
-                            console.log(px,py);
-                            const viewCircle = svg.append("circle")
-                                .attr("cx", px)  // 使用计算后的像素坐标
-                                .attr("cy", py)
-                                .attr("clip-path", "url(#clip-circle)")  // 应用裁剪路径
-                                .attr("r", canvasViewRadius)  // 使用计算后的视距半径
-                                .attr("fill", "rgba(0, 255, 0, 0.2)")  // 半透明绿色
-                                .attr("stroke", "green")
-                                .attr("stroke-width", 1)
-                                .transition()  // 添加过渡效果
-                                .duration(1800)  // 1800ms 后消失
-                                .attr("opacity", 0)  // 透明度渐变到 0
-                                .remove();  // 完全消失后删除元素
-                        }
-
+                        realRadius[index]= canvasViewRadius;
+        
                         // 更新轨迹
                         if(lastlon[index]<position.lon)
                         {
