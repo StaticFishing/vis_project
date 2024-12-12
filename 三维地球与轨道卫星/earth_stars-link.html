@@ -42,29 +42,29 @@
     button:hover { background-color: #0056b3; }
 </style>
 <div id="button-container">
-        <button id="navigate-button" >查看对地信息</button>
+    <button id="navigate-button" >查看对地信息</button>
 </div>
 <div id="111">
     <button id="222" >北斗卫星</button>
 </div>
-    <div id="container">
-        <div id="3d-view"></div>
-        <div id="chart-container">
-            <h2>Satellite Data</h2>
-            <div id="charts"></div>
-        </div>
+<div id="container">
+    <div id="3d-view"></div>
+    <div id="chart-container">
+        <h2>Satellite Data</h2>
+        <div id="charts"></div>
     </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Navigate button event
+    document.getElementById('navigate-button').addEventListener('click', () => {
+        window.location.href = 'normal.html'; // Replace with your target URL
+    });
     document.getElementById('222').addEventListener('click', () => {
         window.location.href = 'earth_BEIDOU.html'; // Replace with your target URL
-    });
-    document.getElementById('navigate-button').addEventListener('click', () => {
-            window.location.href = '../星轨二维实时映射/normal.html'; // Replace with your target URL
     });
 
     // Scene setup
@@ -83,7 +83,7 @@
     // Create Earth sphere
     const earthGeometry = new THREE.SphereGeometry(6.4, 360, 180);
     const textureLoader = new THREE.TextureLoader();
-    const earthTexture = textureLoader.load('https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg');
+    const earthTexture = textureLoader.load('earth.jpg');
     const earthMaterial = new THREE.MeshStandardMaterial({
         map: earthTexture,
         emissive: new THREE.Color(0xeeeeee),
@@ -102,15 +102,16 @@
 
     // Camera position
     camera.position.z = 20;
-
-    // Add star background
+    // https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_stars.jpg
+    //Add star background
     const starsGeometry = new THREE.SphereGeometry(50, 64, 64);
     const starsMaterial = new THREE.MeshBasicMaterial({
-        color: 0x000000,
+        color: 0x111111,
         side: THREE.BackSide,
-        map: textureLoader.load('https://api.allorigins.win/raw?url=https://www.solarsystemscope.com/textures/download/2k_stars.jpg')
+        map: textureLoader.load('raw.jpg')
     });
     const stars = new THREE.Mesh(starsGeometry, starsMaterial);
+    console.log(stars)
     scene.add(stars);
 
     // Initialize OrbitControls
@@ -124,15 +125,21 @@
     const satelliteCharts = {};
 
     function createSatellite(color) {
-        const satelliteGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+        const satelliteGeometry = new THREE.SphereGeometry(1, 16, 16);
         const satelliteMaterial = new THREE.MeshStandardMaterial({ color });
         const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
         scene.add(satellite);
         return satellite;
     }
 
+
+    let startTime = new Date(); // 初始化模拟时间
+    let simulatedTime = startTime.getTime(); // 虚拟时间的起点
+    const timeMultiplier = 100; // 时间加速倍数，例如10倍速度
     function updateSatellites() {
-        const now = new Date();
+        // 更新虚拟时间
+        simulatedTime += timeMultiplier * 150; // 每次更新加速 1500ms
+        const now = new Date(simulatedTime); // 使用虚拟时间
 
         satellites.forEach((sat, index) => {
             const positionAndVelocity = satellite.propagate(sat.satrec, now);
@@ -147,34 +154,27 @@
 
                 sat.object.position.set(x, y, z);
 
-                // Update path
-                const path = satellitePaths[index];
-                path.positions.push(new THREE.Vector3(x, y, z));
-                const pathPositions = [];
-                path.positions.forEach(pos => {
-                    pathPositions.push(pos.x, pos.y, pos.z);
-                });
-
-                path.pathLine.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pathPositions, 3));
-                path.pathLine.geometry.attributes.position.needsUpdate = true;
-
                 // Update satellite chart data
                 const chart = satelliteCharts[sat.name];
                 if (chart) {
-                    const currentTime = (Date.now() / 1000).toFixed(1); // Timestamp
-                    chart.data.labels.push(currentTime);
-                    chart.data.datasets[0].data.push(height);
-                    if (chart.data.labels.length > 100) {
-                        chart.data.labels.shift(); // Limit chart length
-                        chart.data.datasets[0].data.shift();
+                    const currentTime = Math.trunc((simulatedTime / 1000).toFixed(1)); // 虚拟时间戳
+
+                    // 确保只保留最近 100 次数据
+                    if (chart.data.labels.length >= 100) {
+                        chart.data.labels.shift(); // 移除最旧的时间戳
+                        chart.data.datasets[0].data.shift(); // 移除最旧的高度数据
                     }
+
+                    chart.data.labels.push(currentTime % 100000);
+                    chart.data.datasets[0].data.push(height);
                     chart.update();
                 }
             }
         });
 
-        setTimeout(updateSatellites, 1500); // Update every 1.5 seconds
+        setTimeout(updateSatellites, 15); // 每隔15毫秒更新一次
     }
+
 
 
     // Handle window resizing
@@ -187,6 +187,7 @@
     // Animation loop
     function animate() {
         requestAnimationFrame(animate);
+        moveCamera();
         controls.update();
         renderer.render(scene, camera);
     }
@@ -221,7 +222,14 @@
                 const altitude = (distanceFromEarthCenter / 1000) - earthRadius;
 
                 // 根据高度调整时间步进 (分钟)
-                let stepSize=15;
+                let stepSize;
+                if (altitude < 500) {
+                    stepSize = 5; // 近地轨道，步进1分钟
+                } else if (altitude < 20000) {
+                    stepSize = 25; // 中地轨道，步进5分钟
+                } else {
+                    stepSize = 100; // 高地轨道，步进15分钟
+                }
 
                 const minutesSinceEpoch = i * stepSize;
                 const futureTime = new Date(now.getTime() + minutesSinceEpoch * 60 * 1000);
@@ -240,7 +248,6 @@
         return orbitPositions;
     }
 
-
     // Function to create and add an orbit line
     function createOrbitLine(positions, color = 0xffffff) {
         const geometry = new THREE.BufferGeometry().setFromPoints(positions);
@@ -251,7 +258,7 @@
 
     async function fetchAndCreateSatellites() {
         try {
-            const response = await fetch('1(1).txt');
+            const response = await fetch('satellite-stars-link.txt');
             const tleData = await response.text();
             const tleLines = tleData.split('\n').filter(line => line.trim() !== '');
 
@@ -312,6 +319,55 @@
             updateSatellites();
         } catch (error) {
             console.error("Error fetching TLE data:", error);
+        }
+    }
+    // Movement variables
+    const moveSpeed = 0.1;
+    const shiftSpeedMultiplier = 2;
+    const rotationSpeed = 0.005;
+    let isShiftPressed = false;
+
+    // Key states
+    const keys = { w: false, a: false, s: false, d: false, space: false, shift: false };
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Shift') isShiftPressed = true;
+        if (event.key === ' ') keys['space'] = true;
+        keys[event.key.toLowerCase()] = true;
+    });
+
+    document.addEventListener('keyup', (event) => {
+        if (event.key === 'Shift') isShiftPressed = false;
+        if (event.key === ' ') keys['space'] = false;
+        keys[event.key.toLowerCase()] = false;
+    });
+
+    // Camera movement function
+    function moveCamera() {
+        const speed = isShiftPressed ? moveSpeed * shiftSpeedMultiplier : moveSpeed;
+
+        if (keys.w) {
+            camera.position.x -= Math.sin(camera.rotation.y) * speed;
+            camera.position.z -= Math.cos(camera.rotation.y) * speed;
+        }
+        if (keys.s) {
+            camera.position.x += Math.sin(camera.rotation.y) * speed;
+            camera.position.z += Math.cos(camera.rotation.y) * speed;
+        }
+        if (keys.a) {
+            camera.position.x -= Math.cos(camera.rotation.y) * speed;
+            camera.position.z += Math.sin(camera.rotation.y) * speed;
+        }
+        if (keys.d) {
+            camera.position.x += Math.cos(camera.rotation.y) * speed;
+            camera.position.z -= Math.sin(camera.rotation.y) * speed;
+        }
+        if (keys.space) {
+            console.log("apace pressed")
+            camera.position.y += speed;
+        }
+        if (isShiftPressed && !keys.space) {
+            camera.position.y -= speed;
         }
     }
 
