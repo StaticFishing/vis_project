@@ -94,12 +94,13 @@
         // 请求卫星实时位置的模拟函数
         function getSatellitePosition(tle) {
            
-            simulatedTime += 10 * 150; // 每次更新加速 1500ms
+            simulatedTime += 5 * 150; // 每次更新加速 1500ms
             const now = new Date(simulatedTime); // 使用虚拟时间
             const satrec = satellite.twoline2satrec(tle[0], tle[1]);
             const positionAndVelocity = satellite.propagate(satrec, now);
             const position = positionAndVelocity.position;
-            const gmst = satellite.gstime(now);
+           
+            const gmst = satellite.gstime(startTime);
             const positionGd = satellite.eciToGeodetic(position, gmst);
 
             // 将弧度约束在有效范围内
