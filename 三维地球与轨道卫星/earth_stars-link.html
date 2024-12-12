@@ -258,7 +258,7 @@
 
     async function fetchAndCreateSatellites() {
         try {
-            const response = await fetch('1.txt');
+            const response = await fetch('satellite-stars-link.txt');
             const tleData = await response.text();
             const tleLines = tleData.split('\n').filter(line => line.trim() !== '');
 
