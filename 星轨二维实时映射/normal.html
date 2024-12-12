@@ -22,14 +22,22 @@
             z-index: 9999;
             max-width: 300px;
         }
+        #button-container { position: absolute; top: 10px; right: 10px; z-index: 100; }
+        button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
     
     <svg width="2500" height="1200" viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="satelliteInfo"></div> <!-- 卫星信息显示框 -->
-
+    <div id="button-container">
+        <button id="navigate-button" >返回</button>
+    </div>
     <script>
+        document.getElementById('navigate-button').addEventListener('click', () => {
+            window.location.href = '../三维地球与轨道卫星/earth_BEIDOU.html'; // Replace with your target URL
+        });
         const svg = d3.select("svg").append('g').attr("transform", "translate(790,800)");
         const width = +svg.attr("width");
         const height = +svg.attr("height");
@@ -81,10 +89,14 @@
             }
             return longitude;
         }
+        let startTime = new Date(); // 初始化模拟时间
+        let simulatedTime = startTime.getTime(); // 虚拟时间的起点
         // 请求卫星实时位置的模拟函数
         function getSatellitePosition(tle) {
+           
+            simulatedTime += 10 * 150; // 每次更新加速 1500ms
+            const now = new Date(simulatedTime); // 使用虚拟时间
             const satrec = satellite.twoline2satrec(tle[0], tle[1]);
-            const now = new Date();
             const positionAndVelocity = satellite.propagate(satrec, now);
             const position = positionAndVelocity.position;
             const gmst = satellite.gstime(now);
@@ -331,22 +343,23 @@
                         realRadius[index]= canvasViewRadius;
         
                         // 更新轨迹
-                        if(lastlon[index]<position.lon)
-                        {
-                            satelliteData.trajectory.push([position.lon, position.lat]);
-                            satelliteData.trajectoryPath
-                                .attr("d", d3.line()(satelliteData.trajectory.map(d => projection(d))));
-                        }
-                        else
+                        
+                        if(lastlon[index]-position.lon > 180 || position.lon - lastlon[index]> 180)
                         {
                             satelliteData.trajectory = [];
                             satelliteData.trajectoryPath
                             .attr("d", d3.line()(satelliteData.trajectory.map(d => projection(d))));
                         }
+                        else
+                        {
+                            satelliteData.trajectory.push([position.lon, position.lat]);
+                            satelliteData.trajectoryPath
+                                .attr("d", d3.line()(satelliteData.trajectory.map(d => projection(d))));
+                        }
                         lastlon[index] = position.lon;
                     });
 
-                    setTimeout(updateSatellitePosition, 1500);  
+                    setTimeout(updateSatellitePosition, 15);  
                 }
 
                 updateSatellitePosition(); // 开始实时更新卫星位置
